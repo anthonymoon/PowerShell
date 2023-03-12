@@ -1,0 +1,26 @@
+param (
+    [string]$Domain,
+    [string]$Username,
+    [PSCredential]$Credential
+)
+
+# import active directory module
+Import-Module ActiveDirectory
+
+# connect to domain
+$session = New-PSSession -Authentication CredSSP -Credential $Credential -ComputerName $Domain
+
+# dump all group policies
+Invoke-Command -Session $session -ScriptBlock {
+    $policies = Get-GPO -All
+    $policies | ForEach-Object {
+        $policy = $_
+        $policyPath = $policy.GpoId.ToString()
+        $policyData = Backup-GPO -Guid $policy.Id -Path $policyPath
+        $backupFile = Join-Path -Path "C:\Backups" -ChildPath "$($policy.DisplayName).xml"
+        $policyData | Out-File -FilePath $backupFile -Encoding UTF8
+    }
+}
+
+# close session
+Remove-PSSession $session
